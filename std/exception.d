@@ -1215,63 +1215,63 @@ unittest
     Examples:
 --------------------
     //Revert to a default value apon an error:
-    assert("x".to!int.handle(0) == 0);
+    assert("x".to!int.ifThrown(0) == 0);
 --------------------
 
-    You can also chain multiple calls to handle, each capturing errors from the
+    You can also chain multiple calls to ifThrown, each capturing errors from the
     entire preceding expression.
 
     Example:
 --------------------
-    //Chaing multiple calls to handle to try attempts things in a row:
+    //Chaing multiple calls to ifThrown to try attempts things in a row:
     string[int] assoc1 = [1:"one", 2:"two", 3:"three"];
     string[int] assoc2 = [4:"four", 5:"five", 6:"six"];
     string[int] assoc3 = [7:"seven", 8:"eight", 9:"nine"];
-    assert(assoc1[8].handle(assoc2[8]).handle(assoc3[8]) == "eight");
+    assert(assoc1[8].ifThrown(assoc2[8]).ifThrown(assoc3[8]) == "eight");
 
     //Respond differently to different types of errors
     assert(["a", "b", "c"]["x".to!int]
-            .handle!ConvException("not a number")
-            .handle!RangeError("out of range")
+            .ifThrown!ConvException("not a number")
+            .ifThrown!RangeError("out of range")
           == "not a number");
 --------------------
 
     Control structures like conditions and loops accept types
     other then boolean, but an expression's type must be constant at compile
     time, and can not depend on whenever an exception was thrown or not.
-    Therefore, if errorHandler returns a boolean, the handle function's type
+    Therefore, if errorHandler returns a boolean, the ifThrown function's type
     will be boolean even if the original expression's type is not boolean.
 
     Example:
 --------------------
     //Fail the condition if it throws an exception.
-    if([1:"one", 2:null, 3:"three"][4].handle(false))
+    if([1:"one", 2:null, 3:"three"][4].ifThrown(false))
     {
         assert(false);
     }
 --------------------
 
-	If neither the expression nor the errorHandler are boolean, they must have
-	a common type they can both be implicitly casted to, and that type will be
-	the type of the compund expression.
+    If neither the expression nor the errorHandler are boolean, they must have
+    a common type they can both be implicitly casted to, and that type will be
+    the type of the compund expression.
 
-	Examples:
+    Examples:
 --------------------
-	//null and new Object have a common type(Object).
-	assert(is(typeof(null.handle(new Object())) == Object));
-	assert(is(typeof((new Object()).handle(null)) == Object));
+    //null and new Object have a common type(Object).
+    assert(is(typeof(null.ifThrown(new Object())) == Object));
+    assert(is(typeof((new Object()).ifThrown(null)) == Object));
 
-	//1 and new Object do not have a common type.
-	assert(!__traits(compiles, 1.handle(new Object())));
-	assert(!__traits(compiles, (new Object()).handle(1)));
+    //1 and new Object do not have a common type.
+    assert(!__traits(compiles, 1.ifThrown(new Object())));
+    assert(!__traits(compiles, (new Object()).ifThrown(1)));
 --------------------
     +/
-CommonType!(T1,T2) handle(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
-	if(!is(T1 == bool) && !is(T2 == bool))
-	//if(!is(CommonType!(T1, T2) == void) && !is(T1 == bool) && !is(T2 == bool))
+CommonType!(T1,T2) ifThrown(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
+    if(!is(T1 == bool) && !is(T2 == bool))
+    //if(!is(CommonType!(T1, T2) == void) && !is(T1 == bool) && !is(T2 == bool))
 {
-	static assert(!is(CommonType!(T1, T2) == void),
-			"The error handler("~T1.stringof~") does not have a common type with the expression("~T2.stringof~").");
+    static assert(!is(CommonType!(T1, T2) == void),
+            "The error handler("~T1.stringof~") does not have a common type with the expression("~T2.stringof~").");
     try
     {
         return expression();
@@ -1283,38 +1283,38 @@ CommonType!(T1,T2) handle(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 err
 }
 
 ///ditto
-bool handle(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
-	if(is(T1 == bool) || is(T2 == bool))
+bool ifThrown(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
+    if(is(T1 == bool) || is(T2 == bool))
 {
     try
     {
-		static if(is(typeof(expression()) == typeof(null)))
-		{
-			//This statement will always return false, but if handle is used on
-			//a null-type expression it is probably because that expression
-			//might throw, so we still need to run it so it has a chance to
-			//throw(and perform other side-effects).
-			return expression() != null;
-		}
-		else
-		{
-			return expression() ? true : false;
-		}
+        static if(is(typeof(expression()) == typeof(null)))
+        {
+            //This statement will always return false, but if ifThrown is used on
+            //a null-type expression it is probably because that expression
+            //might throw, so we still need to run it so it has a chance to
+            //throw(and perform other side-effects).
+            return expression() != null;
+        }
+        else
+        {
+            return expression() ? true : false;
+        }
     }
     catch(E)
     {
-		static if(is(typeof(errorHandler()) == typeof(null)))
-		{
-			//This statement will always return false, but errorHandler might
-			//have side-effects or throw an exception, and the expected
-			//behaviour is that the errorHandler will be run if expression
-			//throwed - which means it's side effects are desired in that case.
-			return errorHandler() != null;
-		}
-		else
-		{
-			return errorHandler() ? true : false;
-		}
+        static if(is(typeof(errorHandler()) == typeof(null)))
+        {
+            //This statement will always return false, but errorHandler might
+            //have side-effects or throw an exception, and the expected
+            //behaviour is that the errorHandler will be run if expression
+            //throwed - which means it's side effects are desired in that case.
+            return errorHandler() != null;
+        }
+        else
+        {
+            return errorHandler() ? true : false;
+        }
     }
 }
 
@@ -1322,31 +1322,31 @@ bool handle(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
 unittest
 {
     //Revert to a default value apon an error:
-    assert("x".to!int.handle(0) == 0);
+    assert("x".to!int.ifThrown(0) == 0);
 
-    //Chaing multiple calls to handle to try attempts things in a row:
+    //Chaing multiple calls to ifThrown to try attempts things in a row:
     string[int] assoc1 = [1:"one", 2:"two", 3:"three"];
     string[int] assoc2 = [4:"four", 5:"five", 6:"six"];
     string[int] assoc3 = [7:"seven", 8:"eight", 9:"nine"];
-    assert(assoc1[8].handle(assoc2[8]).handle(assoc3[8]) == "eight");
+    assert(assoc1[8].ifThrown(assoc2[8]).ifThrown(assoc3[8]) == "eight");
 
     //Respond differently to different types of errors
     assert(["a", "b", "c"]["x".to!int]
-            .handle!ConvException("not a number")
-            .handle!RangeError("out of range")
+            .ifThrown!ConvException("not a number")
+            .ifThrown!RangeError("out of range")
           == "not a number");
 
     //Fail the condition if it throws an exception.
-    if([1:"one", 2:null, 3:"three"][4].handle(false))
+    if([1:"one", 2:null, 3:"three"][4].ifThrown(false))
     {
         assert(false);
     }
 
-	//null and new Object have a common type(Object).
-	assert(is(typeof(null.handle(new Object())) == Object));
-	assert(is(typeof((new Object()).handle(null)) == Object));
+    //null and new Object have a common type(Object).
+    assert(is(typeof(null.ifThrown(new Object())) == Object));
+    assert(is(typeof((new Object()).ifThrown(null)) == Object));
 
-	//1 and new Object do not have a common type.
-	assert(!__traits(compiles, 1.handle(new Object())));
-	assert(!__traits(compiles, (new Object()).handle(1)));
+    //1 and new Object do not have a common type.
+    assert(!__traits(compiles, 1.ifThrown(new Object())));
+    assert(!__traits(compiles, (new Object()).ifThrown(1)));
 }
