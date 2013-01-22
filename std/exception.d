@@ -1251,13 +1251,27 @@ unittest
     }
 --------------------
 
-    Bugs:
-    If expression's type is typeof(null), handle will break at compile time.  I
-    see no reason to fix this - if you know you can only get null, there is no
-    point in using handle in the first place.
+	If neither the expression nor the errorHandler are boolean, they must have
+	a common type they can both be implicitly casted to, and that type will be
+	the type of the compund expression.
+
+	Examples:
+--------------------
+	//null and new Object have a common type(Object).
+	assert(is(typeof(null.handle(new Object())) == Object));
+	assert(is(typeof((new Object()).handle(null)) == Object));
+
+	//1 and new Object do not have a common type.
+	assert(!__traits(compiles, 1.handle(new Object())));
+	assert(!__traits(compiles, (new Object()).handle(1)));
+--------------------
     +/
-T handle(E = Throwable, T)(lazy T expression, lazy T errorHandler)
+CommonType!(T1,T2) handle(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
+	if(!is(T1 == bool) && !is(T2 == bool))
+	//if(!is(CommonType!(T1, T2) == void) && !is(T1 == bool) && !is(T2 == bool))
 {
+	static assert(!is(CommonType!(T1, T2) == void),
+			"The error handler("~T1.stringof~") does not have a common type with the expression("~T2.stringof~").");
     try
     {
         return expression();
@@ -1269,35 +1283,40 @@ T handle(E = Throwable, T)(lazy T expression, lazy T errorHandler)
 }
 
 ///ditto
-bool handle(E = Throwable, T)(lazy T expression, lazy bool errorHandler) if(!is(T == bool))
+bool handle(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
+	if(is(T1 == bool) || is(T2 == bool))
 {
     try
     {
-        return expression() ? true : false;
+		static if(is(typeof(expression()) == typeof(null)))
+		{
+			//This statement will always return false, but if handle is used on
+			//a null-type expression it is probably because that expression
+			//might throw, so we still need to run it so it has a chance to
+			//throw(and perform other side-effects).
+			return expression() != null;
+		}
+		else
+		{
+			return expression() ? true : false;
+		}
     }
     catch(E)
     {
-        return errorHandler();
+		static if(is(typeof(errorHandler()) == typeof(null)))
+		{
+			//This statement will always return false, but errorHandler might
+			//have side-effects or throw an exception, and the expected
+			//behaviour is that the errorHandler will be run if expression
+			//throwed - which means it's side effects are desired in that case.
+			return errorHandler() != null;
+		}
+		else
+		{
+			return errorHandler() ? true : false;
+		}
     }
 }
-
-
-//Without this version, .handle(null) will break because null has it's own
-//type, which is probably different than T.
-///ditto
-T handle(E = Throwable, T)(lazy T expression, typeof(null) errorHandler)
-{
-    try
-    {
-        return expression();
-    }
-    catch(E)
-    {
-        return null;
-    }
-}
-
-
 
 //Verify Examples
 unittest
@@ -1322,4 +1341,12 @@ unittest
     {
         assert(false);
     }
+
+	//null and new Object have a common type(Object).
+	assert(is(typeof(null.handle(new Object())) == Object));
+	assert(is(typeof((new Object()).handle(null)) == Object));
+
+	//1 and new Object do not have a common type.
+	assert(!__traits(compiles, 1.handle(new Object())));
+	assert(!__traits(compiles, (new Object()).handle(1)));
 }
