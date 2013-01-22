@@ -1201,110 +1201,125 @@ unittest
 }
 
 /++
-	ML Style exception handling. Runs the supplied expression and returns it's
-	result. If the expression throws a $(D Throwable), runs the supplied error
-	handler instead and return it's result. The error handler's type must be
-	the same as the expression's type.
+    ML Style exception handling. Runs the supplied expression and returns it's
+    result. If the expression throws a $(D Throwable), runs the supplied error
+    handler instead and return it's result. The error handler's type must be
+    the same as the expression's type.
 
-	Params:
-	    E            = The types of $(D Throwable)s to catch.
-		T            = The return type of the expression and the error handler.
-		expression   = The expression to run and return it's result.
-		errorHandler = The handler to run if the expression throwed.
+    Params:
+        E            = The types of $(D Throwable)s to catch.
+        T            = The return type of the expression and the error handler.
+        expression   = The expression to run and return it's result.
+        errorHandler = The handler to run if the expression throwed.
 
-	Examples:
+    Examples:
 --------------------
-	//Revert to a default value apon an error:
-	assert("x".to!int.handle(0)==0);
---------------------
-
-	You can also chain multiple calls to handle, each capturing errors from the
-	entire preceding expression.
-
-	Example:
---------------------
-	//Chaing multiple calls to handle to try attempts things in a row:
-	string[int] assoc1=[1:"one",2:"two",3:"three"];
-	string[int] assoc2=[4:"four",5:"five",6:"six"];
-	string[int] assoc3=[7:"seven",8:"eight",9:"nine"];
-	assert(assoc1[8].handle(assoc2[8]).handle(assoc3[8])=="eight");
-
-	//Respond differently to different types of errors
-	assert(["a","b","c"]["x".to!int]
-			.handle!ConvException("not a number")
-			.handle!RangeError("out of range")
-		  =="not a number");
+    //Revert to a default value apon an error:
+    assert("x".to!int.handle(0) == 0);
 --------------------
 
-	Control structures like conditions and loops accept types
-	other then boolean, but an expression's type must be constant at compile
-	time, and can not depend on whenever an exception was thrown or not.
-	Therefore, if errorHandler returns a boolean, the handle function's type
-	will be boolean even if the original expression's type is not boolean.
+    You can also chain multiple calls to handle, each capturing errors from the
+    entire preceding expression.
 
-	Example:
+    Example:
 --------------------
-	//Fail the condition if it throws an exception.
-	if([1:"one",2:null,3:"three"][4].handle(false)){
-		assert(false);
-	}
+    //Chaing multiple calls to handle to try attempts things in a row:
+    string[int] assoc1 = [1:"one", 2:"two", 3:"three"];
+    string[int] assoc2 = [4:"four", 5:"five", 6:"six"];
+    string[int] assoc3 = [7:"seven", 8:"eight", 9:"nine"];
+    assert(assoc1[8].handle(assoc2[8]).handle(assoc3[8]) == "eight");
+
+    //Respond differently to different types of errors
+    assert(["a", "b", "c"]["x".to!int]
+            .handle!ConvException("not a number")
+            .handle!RangeError("out of range")
+          == "not a number");
+--------------------
+
+    Control structures like conditions and loops accept types
+    other then boolean, but an expression's type must be constant at compile
+    time, and can not depend on whenever an exception was thrown or not.
+    Therefore, if errorHandler returns a boolean, the handle function's type
+    will be boolean even if the original expression's type is not boolean.
+
+    Example:
+--------------------
+    //Fail the condition if it throws an exception.
+    if([1:"one", 2:null, 3:"three"][4].handle(false))
+    {
+        assert(false);
+    }
 --------------------
 
     Bugs:
-	If expression's type is typeof(null), handle will break at compile time.  I
-	see no reason to fix this - if you know you can only get null, there is no
-	point in using handle in the first place.
-	+/
-T handle(E=Throwable,T)(lazy T expression,lazy T errorHandler){
-	try{
-		return expression();
-	}catch(E){
-		return errorHandler();
-	}
+    If expression's type is typeof(null), handle will break at compile time.  I
+    see no reason to fix this - if you know you can only get null, there is no
+    point in using handle in the first place.
+    +/
+T handle(E = Throwable, T)(lazy T expression, lazy T errorHandler)
+{
+    try
+    {
+        return expression();
+    }
+    catch(E)
+    {
+        return errorHandler();
+    }
 }
 
 ///ditto
-bool handle(E=Throwable,T)(lazy T expression,lazy bool errorHandler) if(!__traits(isSame,T,bool)){
-	try{
-		return expression() ? true : false;
-	}catch(E){
-		return errorHandler();
-	}
+bool handle(E = Throwable, T)(lazy T expression, lazy bool errorHandler) if(!is(T == bool))
+{
+    try
+    {
+        return expression() ? true : false;
+    }
+    catch(E)
+    {
+        return errorHandler();
+    }
 }
 
 
 //Without this version, .handle(null) will break because null has it's own
 //type, which is probably different than T.
 ///ditto
-T handle(E=Throwable,T)(lazy T expression,typeof(null) errorHandler){
-	try{
-		return expression();
-	}catch(E){
-		return null;
-	}
+T handle(E = Throwable, T)(lazy T expression, typeof(null) errorHandler)
+{
+    try
+    {
+        return expression();
+    }
+    catch(E)
+    {
+        return null;
+    }
 }
 
 
 
 //Verify Examples
-unittest{
-	//Revert to a default value apon an error:
-	assert("x".to!int.handle(0)==0);
+unittest
+{
+    //Revert to a default value apon an error:
+    assert("x".to!int.handle(0) == 0);
 
-	//Chaing multiple calls to handle to try attempts things in a row:
-	string[int] assoc1=[1:"one",2:"two",3:"three"];
-	string[int] assoc2=[4:"four",5:"five",6:"six"];
-	string[int] assoc3=[7:"seven",8:"eight",9:"nine"];
-	assert(assoc1[8].handle(assoc2[8]).handle(assoc3[8])=="eight");
+    //Chaing multiple calls to handle to try attempts things in a row:
+    string[int] assoc1 = [1:"one", 2:"two", 3:"three"];
+    string[int] assoc2 = [4:"four", 5:"five", 6:"six"];
+    string[int] assoc3 = [7:"seven", 8:"eight", 9:"nine"];
+    assert(assoc1[8].handle(assoc2[8]).handle(assoc3[8]) == "eight");
 
-	//Respond differently to different types of errors
-	assert(["a","b","c"]["x".to!int]
-			.handle!ConvException("not a number")
-			.handle!RangeError("out of range")
-		  =="not a number");
+    //Respond differently to different types of errors
+    assert(["a", "b", "c"]["x".to!int]
+            .handle!ConvException("not a number")
+            .handle!RangeError("out of range")
+          == "not a number");
 
-	//Fail the condition if it throws an exception.
-	if([1:"one",2:null,3:"three"][4].handle(false)){
-		assert(false);
-	}
+    //Fail the condition if it throws an exception.
+    if([1:"one", 2:null, 3:"three"][4].handle(false))
+    {
+        assert(false);
+    }
 }
