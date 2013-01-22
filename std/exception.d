@@ -1258,12 +1258,12 @@ unittest
     Examples:
 --------------------
     //null and new Object have a common type(Object).
-    assert(is(typeof(null.ifThrown(new Object())) == Object));
-    assert(is(typeof((new Object()).ifThrown(null)) == Object));
+    static assert(is(typeof(null.ifThrown(new Object())) == Object));
+    static assert(is(typeof((new Object()).ifThrown(null)) == Object));
 
     //1 and new Object do not have a common type.
-    assert(!__traits(compiles, 1.ifThrown(new Object())));
-    assert(!__traits(compiles, (new Object()).ifThrown(1)));
+    static assert(!__traits(compiles, 1.ifThrown(new Object())));
+    static assert(!__traits(compiles, (new Object()).ifThrown(1)));
 --------------------
     +/
 CommonType!(T1,T2) ifThrown(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
@@ -1294,7 +1294,7 @@ bool ifThrown(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
             //a null-type expression it is probably because that expression
             //might throw, so we still need to run it so it has a chance to
             //throw(and perform other side-effects).
-            return expression() != null;
+            return expression() !is null;
         }
         else
         {
@@ -1309,7 +1309,7 @@ bool ifThrown(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
             //have side-effects or throw an exception, and the expected
             //behaviour is that the errorHandler will be run if expression
             //throwed - which means it's side effects are desired in that case.
-            return errorHandler() != null;
+            return errorHandler() !is null;
         }
         else
         {
@@ -1343,10 +1343,10 @@ unittest
     }
 
     //null and new Object have a common type(Object).
-    assert(is(typeof(null.ifThrown(new Object())) == Object));
-    assert(is(typeof((new Object()).ifThrown(null)) == Object));
+    static assert(is(typeof(null.ifThrown(new Object())) == Object));
+    static assert(is(typeof((new Object()).ifThrown(null)) == Object));
 
     //1 and new Object do not have a common type.
-    assert(!__traits(compiles, 1.ifThrown(new Object())));
-    assert(!__traits(compiles, (new Object()).ifThrown(1)));
+    static assert(!__traits(compiles, 1.ifThrown(new Object())));
+    static assert(!__traits(compiles, (new Object()).ifThrown(1)));
 }
