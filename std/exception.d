@@ -1251,9 +1251,9 @@ unittest
 --------------------
 
     Bugs:
-	If you expression's type is typeof(null) handle will break at compile time.
-	I see no reason to fix this - if you know you can only get null, there is
-	no point in using handle in the first place.
+	If expression's type is typeof(null), handle will break at compile time.  I
+	see no reason to fix this - if you know you can only get null, there is no
+	point in using handle in the first place.
 	+/
 T handle(E=Throwable,T)(lazy T expression,lazy T errorHandler){
 	try{
