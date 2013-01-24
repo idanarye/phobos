@@ -1215,7 +1215,7 @@ unittest
     Examples:
 --------------------
     //Revert to a default value apon an error:
-    assert("x".to!int.ifThrown(0) == 0);
+    assert("x".to!int().ifThrown(0) == 0);
 --------------------
 
     You can also chain multiple calls to ifThrown, each capturing errors from the
@@ -1230,7 +1230,7 @@ unittest
     assert(assoc1[8].ifThrown(assoc2[8]).ifThrown(assoc3[8]) == "eight");
 
     //Respond differently to different types of errors
-    assert(["a", "b", "c"]["x".to!int]
+    assert(["a", "b", "c"]["x".to!int()]
             .ifThrown!ConvException("not a number")
             .ifThrown!RangeError("out of range")
           == "not a number");
@@ -1322,7 +1322,7 @@ bool ifThrown(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
 unittest
 {
     //Revert to a default value apon an error:
-    assert("x".to!int.ifThrown(0) == 0);
+    assert("x".to!int().ifThrown(0) == 0);
 
     //Chaing multiple calls to ifThrown to try attempts things in a row:
     string[int] assoc1 = [1:"one", 2:"two", 3:"three"];
@@ -1331,7 +1331,7 @@ unittest
     assert(assoc1[8].ifThrown(assoc2[8]).ifThrown(assoc3[8]) == "eight");
 
     //Respond differently to different types of errors
-    assert(["a", "b", "c"]["x".to!int]
+    assert(["a", "b", "c"]["x".to!int()]
             .ifThrown!ConvException("not a number")
             .ifThrown!RangeError("out of range")
           == "not a number");
