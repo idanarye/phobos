@@ -1288,33 +1288,11 @@ bool ifThrown(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
 {
     try
     {
-        static if(is(typeof(expression()) == typeof(null)))
-        {
-            //This statement will always return false, but if ifThrown is used on
-            //a null-type expression it is probably because that expression
-            //might throw, so we still need to run it so it has a chance to
-            //throw(and perform other side-effects).
-            return expression() !is null;
-        }
-        else
-        {
-            return expression() ? true : false;
-        }
+        return expression() ? true : false;
     }
     catch(E)
     {
-        static if(is(typeof(errorHandler()) == typeof(null)))
-        {
-            //This statement will always return false, but errorHandler might
-            //have side-effects or throw an exception, and the expected
-            //behaviour is that the errorHandler will be run if expression
-            //throwed - which means it's side effects are desired in that case.
-            return errorHandler() !is null;
-        }
-        else
-        {
-            return errorHandler() ? true : false;
-        }
+        return errorHandler() ? true : false;
     }
 }
 
