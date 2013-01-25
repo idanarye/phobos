@@ -1265,13 +1265,22 @@ unittest
     static assert(!__traits(compiles, 1.ifThrown(new Object())));
     static assert(!__traits(compiles, (new Object()).ifThrown(1)));
 --------------------
+
+    If you need to use the actual thrown expection, you can use a delegate.
+    Example:
+--------------------
+    //Use a lambda to get the thrown object.
+    static if(__traits(compiles, 0.ifThrown!Exception(e => 0)))
+    {
+        assert("%s".format().ifThrown!Exception(e => e.classinfo.name) == "std.format.FormatException");
+    }
+--------------------
     +/
-CommonType!(T1,T2) ifThrown(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
+CommonType!(T1,T2) ifThrown(E = Throwable, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
     if(!is(T1 == bool) && !is(T2 == bool))
-    //if(!is(CommonType!(T1, T2) == void) && !is(T1 == bool) && !is(T2 == bool))
 {
     static assert(!is(CommonType!(T1, T2) == void),
-            "The error handler("~T1.stringof~") does not have a common type with the expression("~T2.stringof~").");
+            "The error handler("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
     try
     {
         return expression();
@@ -1283,7 +1292,7 @@ CommonType!(T1,T2) ifThrown(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 e
 }
 
 ///ditto
-bool ifThrown(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
+bool ifThrown(E = Throwable, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
     if(is(T1 == bool) || is(T2 == bool))
 {
     try
@@ -1293,6 +1302,36 @@ bool ifThrown(E = Throwable, T1, T2)(lazy T1 expression, lazy T2 errorHandler)
     catch(E)
     {
         return errorHandler() ? true : false;
+    }
+}
+
+///ditto
+CommonType!(T1,T2) ifThrown(E = Throwable, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
+    if(!is(T1 == bool) && !is(T2 == bool))
+{
+    static assert(!is(CommonType!(T1, T2) == void),
+            "The error handler's return value("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
+    try
+    {
+        return expression();
+    }
+    catch(E e)
+    {
+        return errorHandler(e);
+    }
+}
+
+///ditto
+bool ifThrown(E = Throwable, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
+    if(is(T1 == bool) || is(T2 == bool))
+{
+    try
+    {
+        return expression() ? true : false;
+    }
+    catch(E e)
+    {
+        return errorHandler(e) ? true : false;
     }
 }
 
@@ -1327,4 +1366,10 @@ unittest
     //1 and new Object do not have a common type.
     static assert(!__traits(compiles, 1.ifThrown(new Object())));
     static assert(!__traits(compiles, (new Object()).ifThrown(1)));
+
+    //Use a lambda to get the thrown object.
+    static if(__traits(compiles, 0.ifThrown!Exception(e => 0)))
+    {
+        assert("%s".format().ifThrown!Exception(e => e.classinfo.name) == "std.format.FormatException");
+    }
 }
