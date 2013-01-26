@@ -1246,7 +1246,7 @@ unittest
     Example:
 --------------------
     //Fail the condition if it throws an exception.
-    if("x".to!int().ifThrown(false))
+    if ("x".to!int().ifThrown(false))
     {
         assert(false);
     }
@@ -1271,14 +1271,15 @@ unittest
     Example:
 --------------------
     //Use a lambda to get the thrown object.
-    static if(__traits(compiles, 0.ifThrown!Exception(e => 0)))
+    static if (__traits(compiles, 0.ifThrown!Exception(e => 0)))
     {
         assert("%s".format().ifThrown!Exception(e => e.classinfo.name) == "std.format.FormatException");
     }
 --------------------
     +/
+//CommonType&lazy version
 CommonType!(T1,T2) ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
-    if(!is(T1 == bool) && !is(T2 == bool))
+    if (!is(T1 == bool) && !is(T2 == bool))
 {
     static assert(!is(CommonType!(T1, T2) == void),
             "The error handler("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
@@ -1293,8 +1294,9 @@ CommonType!(T1,T2) ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, laz
 }
 
 ///ditto
+//bool&lazy version
 bool ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
-    if(is(T1 == bool) || is(T2 == bool))
+    if (is(T1 == bool) || is(T2 == bool))
 {
     try
     {
@@ -1307,8 +1309,9 @@ bool ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 err
 }
 
 ///ditto
-CommonType!(T1,T2) ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
-    if(!is(T1 == bool) && !is(T2 == bool))
+//CommonType&delegate version
+CommonType!(T1,T2) ifThrown(E, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
+    if (!is(T1 == bool) && !is(T2 == bool))
 {
     static assert(!is(CommonType!(T1, T2) == void),
             "The error handler's return value("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
@@ -1323,14 +1326,47 @@ CommonType!(T1,T2) ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, sco
 }
 
 ///ditto
-bool ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
-    if(is(T1 == bool) || is(T2 == bool))
+//bool&delegate version
+bool ifThrown(E, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
+    if (is(T1 == bool) || is(T2 == bool))
 {
     try
     {
         return expression() ? true : false;
     }
     catch(E e)
+    {
+        return errorHandler(e) ? true : false;
+    }
+}
+
+///ditto
+//CommonType&delegate version, general overload to catch any Exception
+CommonType!(T1,T2) ifThrown(T1, T2)(lazy scope T1 expression, scope T2 delegate(Exception) errorHandler)
+    if (!is(T1 == bool) && !is(T2 == bool))
+{
+    static assert(!is(CommonType!(T1, T2) == void),
+            "The error handler's return value("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
+    try
+    {
+        return expression();
+    }
+    catch(Exception e)
+    {
+        return errorHandler(e);
+    }
+}
+
+///ditto
+//CommonType&delegate version, general overload to catch any Exception
+bool ifThrown(T1, T2)(lazy scope T1 expression, scope T2 delegate(Exception) errorHandler)
+    if (is(T1 == bool) || is(T2 == bool))
+{
+    try
+    {
+        return expression() ? true : false;
+    }
+    catch(Exception e)
     {
         return errorHandler(e) ? true : false;
     }
@@ -1356,7 +1392,7 @@ unittest
             == "not a number");
 
     //Fail the condition if it throws an exception.
-    if("x".to!int().ifThrown(false))
+    if ("x".to!int().ifThrown(false))
     {
         assert(false);
     }
@@ -1370,8 +1406,8 @@ unittest
     static assert(!__traits(compiles, (new Object()).ifThrown(1)));
 
     //Use a lambda to get the thrown object.
-    static if(__traits(compiles, 0.ifThrown!Exception(e => 0)))
+    static if (__traits(compiles, 0.ifThrown(e => 0)))
     {
-        assert("%s".format().ifThrown!Exception(e => e.classinfo.name) == "std.format.FormatException");
+        assert("%s".format().ifThrown(e => e.classinfo.name) == "std.format.FormatException");
     }
 }
