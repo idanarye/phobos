@@ -1278,7 +1278,7 @@ unittest
 --------------------
     +/
 //CommonType&lazy version
-CommonType!(T1,T2) ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
+CommonType!(T1,T2) ifThrown(E : Throwable = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
     if (!is(T1 == bool) && !is(T2 == bool))
 {
     static assert(!is(CommonType!(T1, T2) == void),
@@ -1295,7 +1295,7 @@ CommonType!(T1,T2) ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, laz
 
 ///ditto
 //bool&lazy version
-bool ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
+bool ifThrown(E : Throwable = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
     if (is(T1 == bool) || is(T2 == bool))
 {
     try
@@ -1310,7 +1310,7 @@ bool ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 err
 
 ///ditto
 //CommonType&delegate version
-CommonType!(T1,T2) ifThrown(E, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
+CommonType!(T1,T2) ifThrown(E : Throwable, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
     if (!is(T1 == bool) && !is(T2 == bool))
 {
     static assert(!is(CommonType!(T1, T2) == void),
@@ -1327,7 +1327,7 @@ CommonType!(T1,T2) ifThrown(E, T1, T2)(lazy scope T1 expression, scope T2 delega
 
 ///ditto
 //bool&delegate version
-bool ifThrown(E, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
+bool ifThrown(E : Throwable, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
     if (is(T1 == bool) || is(T2 == bool))
 {
     try
