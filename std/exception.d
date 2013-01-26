@@ -1207,7 +1207,7 @@ unittest
     the same as the expression's type.
 
     Params:
-        E            = The types of $(D Throwable)s to catch.
+        E            = The type of $(D Throwable)s to catch. Defaults to ${D Exception}
         T            = The return type of the expression and the error handler.
         expression   = The expression to run and return it's result.
         errorHandler = The handler to run if the expression throwed.
@@ -1223,21 +1223,22 @@ unittest
 
     Example:
 --------------------
-    //Chaing multiple calls to ifThrown to try attempts things in a row:
-    string[int] assoc1 = [1:"one", 2:"two", 3:"three"];
-    string[int] assoc2 = [4:"four", 5:"five", 6:"six"];
-    string[int] assoc3 = [7:"seven", 8:"eight", 9:"nine"];
-    assert(assoc1[8].ifThrown(assoc2[8]).ifThrown(assoc3[8]) == "eight");
+    //Chaining multiple calls to ifThrown to attempt multiple things in a row:
+    string s="true";
+    assert(s.to!int().
+            ifThrown(cast(int)s.to!double()).
+            ifThrown(cast(int)s.to!bool())
+            == 1);
 
     //Respond differently to different types of errors
-    assert(["a", "b", "c"]["x".to!int()]
+    assert(enforce("x".to!int() < 1).to!string()
             .ifThrown!ConvException("not a number")
-            .ifThrown!RangeError("out of range")
-          == "not a number");
+            .ifThrown!Exception("number too small")
+            == "not a number");
 --------------------
 
     Control structures like conditions and loops accept types
-    other then boolean, but an expression's type must be constant at compile
+    other than boolean, but an expression's type must be known at compile
     time, and can not depend on whenever an exception was thrown or not.
     Therefore, if errorHandler returns a boolean, the ifThrown function's type
     will be boolean even if the original expression's type is not boolean.
@@ -1245,7 +1246,7 @@ unittest
     Example:
 --------------------
     //Fail the condition if it throws an exception.
-    if([1:"one", 2:null, 3:"three"][4].ifThrown(false))
+    if("x".to!int().ifThrown(false))
     {
         assert(false);
     }
@@ -1253,7 +1254,7 @@ unittest
 
     If neither the expression nor the errorHandler are boolean, they must have
     a common type they can both be implicitly casted to, and that type will be
-    the type of the compund expression.
+    the type of the compound expression.
 
     Examples:
 --------------------
@@ -1276,7 +1277,7 @@ unittest
     }
 --------------------
     +/
-CommonType!(T1,T2) ifThrown(E = Throwable, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
+CommonType!(T1,T2) ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
     if(!is(T1 == bool) && !is(T2 == bool))
 {
     static assert(!is(CommonType!(T1, T2) == void),
@@ -1292,7 +1293,7 @@ CommonType!(T1,T2) ifThrown(E = Throwable, T1, T2)(lazy scope T1 expression, laz
 }
 
 ///ditto
-bool ifThrown(E = Throwable, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
+bool ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
     if(is(T1 == bool) || is(T2 == bool))
 {
     try
@@ -1306,7 +1307,7 @@ bool ifThrown(E = Throwable, T1, T2)(lazy scope T1 expression, lazy scope T2 err
 }
 
 ///ditto
-CommonType!(T1,T2) ifThrown(E = Throwable, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
+CommonType!(T1,T2) ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
     if(!is(T1 == bool) && !is(T2 == bool))
 {
     static assert(!is(CommonType!(T1, T2) == void),
@@ -1322,7 +1323,7 @@ CommonType!(T1,T2) ifThrown(E = Throwable, T1, T2)(lazy scope T1 expression, sco
 }
 
 ///ditto
-bool ifThrown(E = Throwable, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
+bool ifThrown(E = Exception, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
     if(is(T1 == bool) || is(T2 == bool))
 {
     try
@@ -1341,20 +1342,21 @@ unittest
     //Revert to a default value apon an error:
     assert("x".to!int().ifThrown(0) == 0);
 
-    //Chaing multiple calls to ifThrown to try attempts things in a row:
-    string[int] assoc1 = [1:"one", 2:"two", 3:"three"];
-    string[int] assoc2 = [4:"four", 5:"five", 6:"six"];
-    string[int] assoc3 = [7:"seven", 8:"eight", 9:"nine"];
-    assert(assoc1[8].ifThrown(assoc2[8]).ifThrown(assoc3[8]) == "eight");
+    //Chaining multiple calls to ifThrown to attempt multiple things in a row:
+    string s="true";
+    assert(s.to!int().
+            ifThrown(cast(int)s.to!double()).
+            ifThrown(cast(int)s.to!bool())
+            == 1);
 
     //Respond differently to different types of errors
-    assert(["a", "b", "c"]["x".to!int()]
+    assert(enforce("x".to!int() < 1).to!string()
             .ifThrown!ConvException("not a number")
-            .ifThrown!RangeError("out of range")
-          == "not a number");
+            .ifThrown!Exception("number too small")
+            == "not a number");
 
     //Fail the condition if it throws an exception.
-    if([1:"one", 2:null, 3:"three"][4].ifThrown(false))
+    if("x".to!int().ifThrown(false))
     {
         assert(false);
     }
