@@ -1304,22 +1304,6 @@ CommonType!(T1,T2) ifThrown(T1, T2)(lazy scope T1 expression, scope T2 delegate(
     }
 }
 
-///ditto
-//CommonType&delegate version, general overload to catch any Exception
-bool ifThrown(T1, T2)(lazy scope T1 expression, scope T2 delegate(Exception) errorHandler)
-{
-    static assert(!is(CommonType!(T1, T2) == void),
-            "The error handler's return value("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
-    try
-    {
-        return expression() ? true : false;
-    }
-    catch(Exception e)
-    {
-        return errorHandler(e) ? true : false;
-    }
-}
-
 //Verify Examples
 unittest
 {
