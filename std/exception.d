@@ -44,7 +44,7 @@ string synopsis()
  +/
 module std.exception;
 
-import std.array, std.c.string, std.conv, std.range, std.string, std.traits, std.algorithm;
+import std.array, std.c.string, std.conv, std.range, std.string, std.traits;
 import core.exception, core.stdc.errno;
 
 /++
