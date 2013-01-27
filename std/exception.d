@@ -44,7 +44,7 @@ string synopsis()
  +/
 module std.exception;
 
-import std.array, std.c.string, std.conv, std.range, std.string, std.traits;
+import std.array, std.c.string, std.conv, std.range, std.string, std.traits, std.algorithm;
 import core.exception, core.stdc.errno;
 
 /++
@@ -1237,24 +1237,9 @@ unittest
             == "not a number");
 --------------------
 
-    Control structures like conditions and loops accept types
-    other than boolean, but an expression's type must be known at compile
-    time, and can not depend on whenever an exception was thrown or not.
-    Therefore, if errorHandler returns a boolean, the ifThrown function's type
-    will be boolean even if the original expression's type is not boolean.
-
-    Example:
---------------------
-    //Fail the condition if it throws an exception.
-    if ("x".to!int().ifThrown(false))
-    {
-        assert(false);
-    }
---------------------
-
-    If neither the expression nor the errorHandler are boolean, they must have
-    a common type they can both be implicitly casted to, and that type will be
-    the type of the compound expression.
+    The expression and the errorHandler must have a common type they can both
+    be implicitly casted to, and that type will be the type of the compound
+    expression.
 
     Examples:
 --------------------
@@ -1271,18 +1256,12 @@ unittest
     Example:
 --------------------
     //Use a lambda to get the thrown object.
-    static if (__traits(compiles, 0.ifThrown!Exception(e => 0)))
-    {
-        assert("%s".format().ifThrown!Exception(e => e.classinfo.name) == "std.format.FormatException");
-    }
+    assert("%s".format().ifThrown!Exception(e => e.classinfo.name) == "std.format.FormatException");
 --------------------
     +/
-//CommonType&lazy version
+//lazy version
 CommonType!(T1,T2) ifThrown(E : Throwable = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
-    if (!is(T1 == bool) && !is(T2 == bool))
 {
-    static assert(!is(CommonType!(T1, T2) == void),
-            "The error handler("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
     try
     {
         return expression();
@@ -1294,24 +1273,8 @@ CommonType!(T1,T2) ifThrown(E : Throwable = Exception, T1, T2)(lazy scope T1 exp
 }
 
 ///ditto
-//bool&lazy version
-bool ifThrown(E : Throwable = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
-    if (is(T1 == bool) || is(T2 == bool))
-{
-    try
-    {
-        return expression() ? true : false;
-    }
-    catch(E)
-    {
-        return errorHandler() ? true : false;
-    }
-}
-
-///ditto
-//CommonType&delegate version
+//delegate version
 CommonType!(T1,T2) ifThrown(E : Throwable, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
-    if (!is(T1 == bool) && !is(T2 == bool))
 {
     static assert(!is(CommonType!(T1, T2) == void),
             "The error handler's return value("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
@@ -1326,24 +1289,8 @@ CommonType!(T1,T2) ifThrown(E : Throwable, T1, T2)(lazy scope T1 expression, sco
 }
 
 ///ditto
-//bool&delegate version
-bool ifThrown(E : Throwable, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
-    if (is(T1 == bool) || is(T2 == bool))
-{
-    try
-    {
-        return expression() ? true : false;
-    }
-    catch(E e)
-    {
-        return errorHandler(e) ? true : false;
-    }
-}
-
-///ditto
-//CommonType&delegate version, general overload to catch any Exception
+//delegate version, general overload to catch any Exception
 CommonType!(T1,T2) ifThrown(T1, T2)(lazy scope T1 expression, scope T2 delegate(Exception) errorHandler)
-    if (!is(T1 == bool) && !is(T2 == bool))
 {
     static assert(!is(CommonType!(T1, T2) == void),
             "The error handler's return value("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
@@ -1360,8 +1307,9 @@ CommonType!(T1,T2) ifThrown(T1, T2)(lazy scope T1 expression, scope T2 delegate(
 ///ditto
 //CommonType&delegate version, general overload to catch any Exception
 bool ifThrown(T1, T2)(lazy scope T1 expression, scope T2 delegate(Exception) errorHandler)
-    if (is(T1 == bool) || is(T2 == bool))
 {
+    static assert(!is(CommonType!(T1, T2) == void),
+            "The error handler's return value("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
     try
     {
         return expression() ? true : false;
@@ -1391,12 +1339,6 @@ unittest
             .ifThrown!Exception("number too small")
             == "not a number");
 
-    //Fail the condition if it throws an exception.
-    if ("x".to!int().ifThrown(false))
-    {
-        assert(false);
-    }
-
     //null and new Object have a common type(Object).
     static assert(is(typeof(null.ifThrown(new Object())) == Object));
     static assert(is(typeof((new Object()).ifThrown(null)) == Object));
@@ -1406,7 +1348,7 @@ unittest
     static assert(!__traits(compiles, (new Object()).ifThrown(1)));
 
     //Use a lambda to get the thrown object.
-    static if (__traits(compiles, 0.ifThrown(e => 0)))
+    static if (__traits(compiles, 0.ifThrown(e => 0))) //This will only work with a fix that will be introduced in dmd 2.062
     {
         assert("%s".format().ifThrown(e => e.classinfo.name) == "std.format.FormatException");
     }
