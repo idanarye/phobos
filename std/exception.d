@@ -1339,3 +1339,37 @@ unittest
         assert("%s".format().ifThrown(e => e.classinfo.name) == "std.format.FormatException");
     }
 }
+
+unittest
+{
+	//Basic behaviour - all versions.
+	assert("1".to!int().ifThrown(0) == 1);
+	assert("x".to!int().ifThrown(0) == 0);
+	assert("1".to!int().ifThrown!ConvException(0) == 1);
+	assert("x".to!int().ifThrown!ConvException(0) == 0);
+    static if (__traits(compiles, 0.ifThrown(e => 0))) //This will only work with a fix that will be introduced in dmd 2.062
+	{
+		assert("1".to!int().ifThrown(e=>0) == 1);
+		assert("x".to!int().ifThrown(e=>0) == 0);
+	}
+	assert("1".to!int().ifThrown!ConvException(e=>0) == 1);
+	assert("x".to!int().ifThrown!ConvException(e=>0) == 0);
+
+	//Exceptions other than stated not cought.
+	assert("x".to!int().ifThrown!StringException(0).collectException!ConvException() !is null);
+	assert("x".to!int().ifThrown!StringException(e=>0).collectException!ConvException() !is null);
+
+	//Default does not include errors.
+	int[] a=[];
+	assert(a[0].ifThrown(0).collectException!RangeError() !is null);
+    static if (__traits(compiles, 0.ifThrown(e => 0))) //This will only work with a fix that will be introduced in dmd 2.062
+	{
+		assert(a[0].ifThrown(e=>0).collectException!RangeError() !is null);
+	}
+
+	//Incompatible types are not accepted.
+    static assert(!__traits(compiles, 1.ifThrown(new Object())));
+    static assert(!__traits(compiles, 1.ifThrown!Exception(e=>new Object())));
+    static assert(!__traits(compiles, (new Object()).ifThrown(1)));
+    static assert(!__traits(compiles, (new Object()).ifThrown!Exception(e=>1)));
+}
