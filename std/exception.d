@@ -1260,8 +1260,10 @@ unittest
 --------------------
     +/
 //lazy version
-CommonType!(T1,T2) ifThrown(E : Throwable = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
+CommonType!(T1, T2) ifThrown(E : Throwable = Exception, T1, T2)(lazy scope T1 expression, lazy scope T2 errorHandler)
 {
+    static assert(!is(typeof(return) == void),
+            "The error handler's return value("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
     try
     {
         return expression();
@@ -1274,9 +1276,9 @@ CommonType!(T1,T2) ifThrown(E : Throwable = Exception, T1, T2)(lazy scope T1 exp
 
 ///ditto
 //delegate version
-CommonType!(T1,T2) ifThrown(E : Throwable, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
+CommonType!(T1, T2) ifThrown(E : Throwable, T1, T2)(lazy scope T1 expression, scope T2 delegate(E) errorHandler)
 {
-    static assert(!is(CommonType!(T1, T2) == void),
+    static assert(!is(typeof(return) == void),
             "The error handler's return value("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
     try
     {
@@ -1290,9 +1292,9 @@ CommonType!(T1,T2) ifThrown(E : Throwable, T1, T2)(lazy scope T1 expression, sco
 
 ///ditto
 //delegate version, general overload to catch any Exception
-CommonType!(T1,T2) ifThrown(T1, T2)(lazy scope T1 expression, scope T2 delegate(Exception) errorHandler)
+CommonType!(T1, T2) ifThrown(T1, T2)(lazy scope T1 expression, scope T2 delegate(Exception) errorHandler)
 {
-    static assert(!is(CommonType!(T1, T2) == void),
+    static assert(!is(typeof(return) == void),
             "The error handler's return value("~T2.stringof~") does not have a common type with the expression("~T1.stringof~").");
     try
     {
