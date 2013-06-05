@@ -252,9 +252,9 @@ each one of the three types of globality that D offers:
     <tr><td valign=top><span class="d_inlinecode"><a href="#SharedSingleton"><span class="d_inlinecode">SharedSingleton</span></a></span></td>
         <td valign=top>A thread-safe, process-global singleton. Corresponds to D's <span class="d_inlinecode">       static shared</span>.
     </td></tr>
-    <tr><td valign=top><span class="d_inlinecode"><a href="#__GSharedSingleton"><span class="d_inlinecode">__GSharedSingleton</span></a></span></td>
+    <tr><td valign=top><span class="d_inlinecode"><a href="#_GSharedSingleton"><span class="d_inlinecode">_GSharedSingleton</span></a></span></td>
         <td valign=top>A process-global singleton, providing thread-safe initialization
-        without forcing thread-safe methods. Corresponds to D's <span class="d_inlinecode">_gshared</span>.
+        without forcing thread-safe methods. Corresponds to D's <span class="d_inlinecode">__gshared</span>.
     </td></tr>
 </table>
 
@@ -284,7 +284,7 @@ each one of the three types of globality that D offers:
  the value for the property is correct.
 <p></p>
 Unlike <span class="d_inlinecode">Enforcing</span>, <a name="Asserting"></a><span class="ddoc_psymbol">Asserting</span> will be disabled when compiled with the
- <i>--release</i> flag.<p></p>
+ <i>-release</i> flag.<p></p>
 
 <dl><dt class="d_decl"><a name=".Asserting.assertion"></a>string <a name="assertion"></a><span class="ddoc_psymbol">assertion</span>;
 </dt>
@@ -305,8 +305,8 @@ Unlike <span class="d_inlinecode">Enforcing</span>, <a name="Asserting"></a><spa
  the value for the property is correct, and throw <span class="d_inlinecode">PropertyException</span> if
  it isn't.
 <p></p>
-Unlike <span class="d_inlinecode">Asserting</span>, Asserting will be enabled when compiled with the
- --release flag.<p></p>
+Unlike <span class="d_inlinecode">Asserting</span>, <a name="Enforcing"></a><span class="ddoc_psymbol">Enforcing</span> will be enabled when compiled with the
+ -release flag.<p></p>
 
 <dl><dt class="d_decl"><a name=".Enforcing.enforcement"></a>string <a name="enforcement"></a><span class="ddoc_psymbol">enforcement</span>;
 </dt>
@@ -379,13 +379,13 @@ assertThrown!AssertError(x = 5);
 </pre>
 <p></p>
 </dd>
-<dt class="d_decl"><a name=".__GSharedSingleton"></a>template <a name="__GSharedSingleton"></a><span class="ddoc_psymbol">__GSharedSingleton</span>()</dt>
+<dt class="d_decl"><a name="._GSharedSingleton"></a>template <a name="_GSharedSingleton"></a><span class="ddoc_psymbol">_GSharedSingleton</span>()</dt>
 <dd>Turns the class into a singleon, using David Simcha's and Alexander
  Terekhov's low lock singleton implementation approach.
 <p></p>
 This version of the <i>Singleton</i> idiom only synchronizes the
  <u>initialization</u> of the singleton. Methods of the instance <b><span style="color:red">are not
- synchronized automatically</span></b> by <span class="d_inlinecode">__GSharedSingleton</span>.
+ synchronized automatically</span></b> by <span class="d_inlinecode">_GSharedSingleton</span>.
 <p></p>
 
  <b><span style="color:red">This template mixin does not create a private constructor!</span></b> A
@@ -395,7 +395,7 @@ This version of the <i>Singleton</i> idiom only synchronizes the
 <span class="d_comment">//Singleton with default constructor:
 </span><span class="d_keyword">static</span> <span class="d_keyword">class</span> Foo
 {
-    <span class="d_keyword">mixin</span> <span class="d_psymbol">__GSharedSingleton</span>;
+    <span class="d_keyword">mixin</span> <span class="d_psymbol">_GSharedSingleton</span>;
 
     <span class="d_keyword">private</span> <span class="d_keyword">this</span>(){}
 }
@@ -415,7 +415,7 @@ getFooFromAnotherThread.executeInNewThread();
 <span class="d_comment">//Singleton with no default constructor needs to be initialized:
 </span><span class="d_keyword">static</span> <span class="d_keyword">class</span> Bar
 {
-    <span class="d_keyword">mixin</span> <span class="d_psymbol">__GSharedSingleton</span>;
+    <span class="d_keyword">mixin</span> <span class="d_psymbol">_GSharedSingleton</span>;
 
     <span class="d_keyword">private</span> <span class="d_keyword">int</span> x;
 
