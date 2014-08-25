@@ -12924,53 +12924,154 @@ unittest
     assert(n == 60);
 }
 
+// Used in _castSwitch_indexOfFirstOvershadowingChoiceOnLast. Returns true if
+// any tuple that can be cast member-by-member to "covered" can also be cast
+// member-by-member to "shadow". If they are of different lengths, the extra
+// slots are compared against typeof(null).
+private template _castSwitch_isOvershadowedBy(covered, shadow)
+{
+    static if(covered.length == 0 && shadow.length == 0)
+    {
+        // If they are both empty then they overshadow each other:
+        enum _castSwitch_isOvershadowedBy = true;
+    }
+    else static if (shadow.length == 0 && is(covered.Types[0] == void*))
+    {
+        // void* is not overshadowed by the null type:
+        enum _castSwitch_isOvershadowedBy = false;
+    }
+    else static if (shadow.length == 0 && !is(covered.Types[0] == typeof(null)))
+    {
+        // An empty shadow can not cover a non-null TypeTuple:
+        enum _castSwitch_isOvershadowedBy = false;
+    }
+    else static if (shadow.length == 0 /*by elimination - covered[0] must be the null type*/)
+    {
+        // First type overshadowed(both null) - check the rest:
+        enum _castSwitch_isOvershadowedBy = _castSwitch_isOvershadowedBy!(Tuple!(covered.Types[1 .. $]), Tuple!());
+    }
+    else static if (covered.length == 0 && !is(shadow.Types[0] == typeof(null)) && !is(shadow.Types[0] == void*))
+    {
+        // An non-null shadow can not cover an empty Tuple:
+        enum _castSwitch_isOvershadowedBy = false;
+    }
+    else static if (covered.length == 0 /*by elimination - shadow[0] must be the null type or void**/)
+    {
+        // First type overshadowed(either both null or shadow[0] is void*) - check the rest:
+        enum _castSwitch_isOvershadowedBy = _castSwitch_isOvershadowedBy!(Tuple!(), Tuple!(shadow.Types[1 .. $]));
+    }
+    else static if (is(shadow.Types[0] == void*))
+    {
+        // First type overshadowed(void* overshadows everything) - check the rest:
+        enum _castSwitch_isOvershadowedBy = _castSwitch_isOvershadowedBy!(Tuple!(covered.Types[1 .. $]), Tuple!(shadow.Types[1 .. $]));
+    }
+    else static if (is(shadow.Types[0] == Object) && is(covered.Types[0] == interface))
+    {
+        // First type overshadowed(Object overshadows all interfaces) - check the rest:
+        enum _castSwitch_isOvershadowedBy = _castSwitch_isOvershadowedBy!(Tuple!(covered.Types[1 .. $]), Tuple!(shadow.Types[1 .. $]));
+    }
+    else static if (is(covered.Types[0] == typeof(null)) && !is(shadow.Types[0] == typeof(null)))
+    {
+        // Prevent the null type from being overshadowed by classes:
+        enum _castSwitch_isOvershadowedBy = false;
+    }
+    else static if (is(covered.Types[0] : shadow.Types[0]))
+    {
+        // First type overshadowed - check the rest:
+        enum _castSwitch_isOvershadowedBy = _castSwitch_isOvershadowedBy!(Tuple!(covered.Types[1 .. $]), Tuple!(shadow.Types[1 .. $]));
+    }
+    else // By elimination - first type does not overshadow
+    {
+        // Found an index that doesn't overshadow - so no overshadow overall:
+        enum _castSwitch_isOvershadowedBy = false;
+    }
+}
+
+// For _castSwitch_isOvershadowedBy:
+unittest
+{
+    // Same type overshadows:
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(int), Tuple!(int)));
+
+    // Upcast type overshadows:
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(int), Tuple!(long)));
+
+    // Downcast type does not overshadow:
+    static assert(!_castSwitch_isOvershadowedBy!(Tuple!(long), Tuple!(int)));
+
+    // Overshadowing can happen after the first type:
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(int,int), Tuple!(int,long)));
+    static assert(!_castSwitch_isOvershadowedBy!(Tuple!(int,long), Tuple!(int,int)));
+
+    // Different length of type tuples do not overshadow:
+    static assert(!_castSwitch_isOvershadowedBy!(Tuple!(int,int), Tuple!(long)));
+    static assert(!_castSwitch_isOvershadowedBy!(Tuple!(int), Tuple!(long,long)));
+
+    // Unless the extra types are all null types:
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(int,typeof(null)), Tuple!(long)));
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(int), Tuple!(long,typeof(null))));
+
+    // void* overshadows everything:
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(int), Tuple!(void*)));
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(typeof(null)), Tuple!(void*)));
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(), Tuple!(void*)));
+
+    // void* is overshadowed by nothing:
+    static assert(!_castSwitch_isOvershadowedBy!(Tuple!(void*), Tuple!(int)));
+    static assert(!_castSwitch_isOvershadowedBy!(Tuple!(void*), Tuple!(typeof(null))));
+    static assert(!_castSwitch_isOvershadowedBy!(Tuple!(void*), Tuple!()));
+
+    // Except another void*:
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(void*), Tuple!(void*)));
+
+    // Nulltype overshadows itself:
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(typeof(null)), Tuple!(typeof(null))));
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(), Tuple!()));
+
+    // And nothing else:
+    static assert(!_castSwitch_isOvershadowedBy!(Tuple!(Object), Tuple!(typeof(null))));
+
+    // And is overshadowed by nothing else:
+    static assert(!_castSwitch_isOvershadowedBy!(Tuple!(typeof(null)), Tuple!(Object)));
+
+    // Except void*:
+    static assert(_castSwitch_isOvershadowedBy!(Tuple!(typeof(null)), Tuple!(void*)));
+
+}
+
 // Used in castSwitch to find the first choice that overshadows the last choice
 // in a tuple.
-private template indexOfFirstOvershadowingChoiceOnLast(choices...)
+private template _castSwitch_indexOfFirstOvershadowingChoiceOnLast(choices...)
 {
     alias firstParameterTypes = ParameterTypeTuple!(choices[0]);
     alias lastParameterTypes = ParameterTypeTuple!(choices[$ - 1]);
 
-    static if (lastParameterTypes.length == 0)
+    static if (_castSwitch_isOvershadowedBy!(Tuple!lastParameterTypes,Tuple!firstParameterTypes))
     {
-        // If the last is null-typed choice, check if the first is null-typed.
-        enum isOvershadowing = firstParameterTypes.length == 0;
-    }
-    else static if (firstParameterTypes.length == 1)
-    {
-        // If the both first and last are not null-typed, check for overshadowing.
-        enum isOvershadowing =
-            is(firstParameterTypes[0] == Object) // Object overshadows all other classes!(this is needed for interfaces)
-            || is(lastParameterTypes[0] : firstParameterTypes[0]);
+        enum _castSwitch_indexOfFirstOvershadowingChoiceOnLast = 0;
     }
     else
     {
-        // If the first is null typed and the last is not - the is no overshadowing.
-        enum isOvershadowing = false;
-    }
-
-    static if (isOvershadowing)
-    {
-        enum indexOfFirstOvershadowingChoiceOnLast = 0;
-    }
-    else
-    {
-        enum indexOfFirstOvershadowingChoiceOnLast =
-            1 + indexOfFirstOvershadowingChoiceOnLast!(choices[1..$]);
+        enum _castSwitch_indexOfFirstOvershadowingChoiceOnLast =
+            1 + _castSwitch_indexOfFirstOvershadowingChoiceOnLast!(choices[1..$]);
     }
 }
 
 /**
-Executes and returns one of a collection of handlers based on the type of the
-switch object.
+Executes and returns one of a collection of handlers based on the types of the
+switch objects.
 
-$(D choices) needs to be composed of function or delegate handlers that accept
-one argument. The first choice that $(D switchObject) can be casted to the type
-of argument it accepts will be called with $(D switchObject) casted to that
-type, and the value it'll return will be returned by $(D castSwitch).
+$(D choices) needs to be composed of function or delegate handlers. The first
+choice that all the $(D switchObjects) can be casted to the type of arguments
+it accepts will be called with $(D switchObjects) casted to that type, and the
+value it'll return will be returned by $(D castSwitch).
 
-There can also be a choice that accepts zero arguments. That choice will be
-invoked if $(D switchObject) is null.
+If an handler accepts less arguments than the number of switch objects, the
+switch objects that don't have handler arguments must be null for the handler
+to be chosen to be invoked.
+
+Handler arguemnts of type void* are the wildcards that can accept all types of
+switch objects.
 
 If a choice's return type is void, the choice must throw an exception, unless
 all the choices are void. In that case, castSwitch itself will return void.
@@ -12978,173 +13079,248 @@ all the choices are void. In that case, castSwitch itself will return void.
 Throws: If none of the choice matches, a $(D SwitchError) will be thrown.  $(D
 SwitchError) will also be thrown if not all the choices are void and a void
 choice was executed without throwing anything.
-
-Note: $(D castSwitch) can only be used with object types.
 */
-auto castSwitch(choices...)(Object switchObject)
+template castSwitch(choices...)
 {
-    import core.exception : SwitchError;
-
-    // Check to see if all handlers return void.
-    enum areAllHandlersVoidResult={
-        foreach(index, choice; choices)
-        {
-            if(!is(ReturnType!choice == void))
-            {
-                return false;
-            }
-        }
-        return true;
-    }();
-
-    if (switchObject !is null)
+    // Single tuple argument specialization:
+    auto castSwitch(T...)(T switchObjects) if (T.length == 1 && is(T[0] : Tuple!S, S...))
     {
+        return castSwitch(switchObjects[0].expand);
+    }
 
-        // Checking for exact matches:
-        ClassInfo classInfo = typeid(switchObject);
+    auto castSwitch(T...)(T switchObjects) if (T.length != 1 || !is(T[0] : Tuple!S, S...))
+    {
+        import core.exception : SwitchError;
+
+        // Check to see if all handlers return void.
+        enum areAllHandlersVoidResult={
+            foreach(index, choice; choices)
+            {
+                if(!is(ReturnType!choice == void))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }();
+
+        // Save the type infos of the arguments:
+        TypeInfo[switchObjects.length] typeInfos;
+        foreach(i, switchObject; switchObjects)
+        {
+            static if (is(typeof(switchObject) == class))
+            {
+                // Using typeid on a null object reference causes a segfault so
+                // we need to check for that manually.
+                if (switchObject is null)
+                {
+                    typeInfos[i] = typeid(null);
+                    continue;
+                }
+            }
+            typeInfos[i] = typeid(switchObjects[i]);
+        }
+
+checkForExactMaches:
         foreach (index, choice; choices)
         {
             static assert(isCallable!choice,
                     "A choice handler must be callable");
 
-            alias choiceParameterTypes = ParameterTypeTuple!choice;
-            static assert(choiceParameterTypes.length <= 1,
-                    "A choice handler can not have more than one argument.");
+            alias ChoiceParameterTypes = ParameterTypeTuple!choice;
 
-            static if (choiceParameterTypes.length == 1)
+            static if (ChoiceParameterTypes.length <= switchObjects.length) // Can't match if too long
             {
-                alias CastClass = choiceParameterTypes[0];
-                static assert(is(CastClass == class) || is(CastClass == interface),
-                        "A choice handler can have only class or interface typed argument.");
-
                 // Check for overshadowing:
                 immutable indexOfOvershadowingChoice =
-                    indexOfFirstOvershadowingChoiceOnLast!(choices[0..index + 1]);
+                    _castSwitch_indexOfFirstOvershadowingChoiceOnLast!(choices[0..index + 1]);
                 static assert(indexOfOvershadowingChoice == index,
-                        "choice number %d(type %s) is overshadowed by choice number %d(type %s)".format(
-                            index + 1, CastClass.stringof, indexOfOvershadowingChoice + 1,
+                        std.string.format(
+                            "choice number %d(type %s) is overshadowed by choice number %d(type %s)",
+                            index + 1, ChoiceParameterTypes.stringof, indexOfOvershadowingChoice + 1,
                             ParameterTypeTuple!(choices[indexOfOvershadowingChoice])[0].stringof));
 
-                if (classInfo == typeid(CastClass))
+                // Check the argument types
+                foreach(i, CastClass; ChoiceParameterTypes)
                 {
-                    static if(is(ReturnType!(choice) == void))
+                    // We don't need to check for void* because they match everything:
+                    static if (!is(CastClass == void*))
                     {
-                        choice(cast(CastClass) switchObject);
-                        static if (areAllHandlersVoidResult)
+                        if (typeInfos[i] !is typeid(CastClass))
                         {
-                            return;
+                            continue checkForExactMaches;
                         }
-                        else
+                    }
+                }
+                static if (ChoiceParameterTypes.length < switchObjects.length)
+                {
+                    // If we have more switch objects than parameters, we
+                    // make sure the remaining objects are all null:
+                    foreach(switchObject; switchObjects[ChoiceParameterTypes.length .. $])
+                    {
+                        // Do not perform that check for non-nullable types
+                        static if (isAssignable!(typeof(switchObject), typeof(null)))
                         {
-                            throw new SwitchError("Handlers that return void should throw");
+                            if (switchObject !is null)
+                            {
+                                continue checkForExactMaches;
+                            }
                         }
+                    }
+                }
+
+                // Cast the arguments:
+                ChoiceParameterTypes castedArguments;
+                foreach(i, switchObject; switchObjects)
+                {
+                    static if (i < ChoiceParameterTypes.length && !is(ChoiceParameterTypes[i] == typeof(null)))
+                    {
+                        castedArguments[i] = cast(ChoiceParameterTypes[i]) switchObject;
+                    }
+                }
+
+                // Call the handler:
+                static if(is(ReturnType!(choice) == void))
+                {
+                    choice(castedArguments);
+                    static if (areAllHandlersVoidResult)
+                    {
+                        return;
                     }
                     else
                     {
-                        return choice(cast(CastClass) switchObject);
+                        throw new SwitchError("Handlers that return void should throw");
                     }
+                }
+                else
+                {
+                    return choice(castedArguments);
                 }
             }
         }
 
-        // Checking for derived matches:
+
+checkForDerivedMatches:
         foreach (choice; choices)
         {
-            alias choiceParameterTypes = ParameterTypeTuple!choice;
-            static if (choiceParameterTypes.length == 1)
+            alias ChoiceParameterTypes = ParameterTypeTuple!choice;
+            static if (ChoiceParameterTypes.length <= switchObjects.length)
             {
-                if (auto castedObject = cast(choiceParameterTypes[0]) switchObject)
+                // Check the argument types while casting them:
+                ChoiceParameterTypes castedArguments;
+                foreach(i, switchObject; switchObjects)
                 {
-                    static if(is(ReturnType!(choice) == void))
+                    static if (ChoiceParameterTypes.length <= i)
                     {
-                        choice(castedObject);
-                        static if (areAllHandlersVoidResult)
+                        // If we have more switch objects than parameters,
+                        // we make sure the remaining objects are all null.
+                        // We do not perform that check for non-nullable
+                        // types.
+                        static if (isAssignable!(typeof(switchObject), typeof(null)))
                         {
-                            return;
+                            if (switchObject !is null)
+                            {
+                                continue checkForDerivedMatches;
+                            }
+                        }
+                    }
+                    else static if (is(ChoiceParameterTypes[i] == typeof(null)))
+                    {
+                        static if (isAssignable!(typeof(switchObject), typeof(null)))
+                        {
+                            if (switchObject !is null)
+                            {
+                                continue checkForDerivedMatches;
+                            }
                         }
                         else
                         {
-                            throw new SwitchError("Handlers that return void should throw");
+                            // If the object type is not nullable than it
+                            // wouldn't fit as a null type argument anyway:
+                            continue checkForDerivedMatches;
                         }
+                    }
+                    else static if (is(ChoiceParameterTypes[i] == void*))
+                    {
+                        // void* matches everything so no check is required:
+                        castedArguments[i] = cast(void*) switchObject;
+                    }
+                    else static if (isAssignable!(ChoiceParameterTypes[i], typeof(null)))
+                    {
+                        // Attempt casting if the slot is nullable(so we can check for success):
+                        castedArguments[i] = cast(ChoiceParameterTypes[i]) switchObject;
+                        if (castedArguments[i] is null)
+                        {
+                            continue checkForDerivedMatches;
+                        }
+                    }
+                    else static if (isAssignable!(ChoiceParameterTypes[i], typeof(switchObject)))
+                    {
+                        // If the slot is not nullable, we can static-check if the casting will succeed:
+                        castedArguments[i] = switchObject;
                     }
                     else
                     {
-                        return choice(castedObject);
+                        continue checkForDerivedMatches;
                     }
                 }
-            }
-        }
-    }
-    else // If switchObject is null:
-    {
-        // Checking for null matches:
-        foreach (index, choice; choices)
-        {
-            static if (ParameterTypeTuple!(choice).length == 0)
-            {
-                immutable indexOfOvershadowingChoice =
-                    indexOfFirstOvershadowingChoiceOnLast!(choices[0..index + 1]);
 
-                // Check for overshadowing:
-                static assert(indexOfOvershadowingChoice == index,
-                        "choice number %d(null reference) is overshadowed by choice number %d(null reference)".format(
-                            index + 1, indexOfOvershadowingChoice + 1));
-
-                if (switchObject is null)
+                // Call the handler:
+                static if(is(ReturnType!(choice) == void))
                 {
-                    static if(is(ReturnType!(choice) == void))
+                    choice(castedArguments);
+                    static if (areAllHandlersVoidResult)
                     {
-                        choice();
-                        static if (areAllHandlersVoidResult)
-                        {
-                            return;
-                        }
-                        else
-                        {
-                            throw new SwitchError("Handlers that return void should throw");
-                        }
+                        return;
                     }
                     else
                     {
-                        return choice();
+                        throw new SwitchError("Handlers that return void should throw");
                     }
+                }
+                else
+                {
+                    return choice(castedArguments);
                 }
             }
         }
-    }
 
-    // In case nothing matched:
-    throw new SwitchError("Input not matched by any choice");
+        // In case nothing matched:
+        throw new SwitchError("Input not matched by any choice");
+    }
 }
 
 ///
 unittest
 {
-    import std.string : format;
+    import std.conv;
 
-    class A
+    interface Vertex {}
+    class Node : Vertex
     {
-        int a;
-        this(int a) {this.a = a;}
-        @property int i() { return a; }
+        Vertex left;
+        Vertex right;
+        this(Vertex left, Vertex right) { this.left = left; this.right = right; }
     }
-    interface I { }
-    class B : I { }
+    class Leaf : Vertex
+    {
+        int value;
+        this(int value) { this.value = value; }
+    }
 
-    Object[] arr = [new A(1), new B(), null];
+    string toString(Vertex vertex)
+    {
+        return vertex.castSwitch!(
+                   (Node node) => toString(node.left) ~ " " ~ toString(node.right),
+                   (Leaf leaf) => leaf.value.to!string(),
+               )();
+    }
 
-    auto results = arr.map!(castSwitch!(
-                                (A a) => "A with a value of %d".format(a.a),
-                                (I i) => "derived from I",
-                                ()    => "null reference",
-                            ))();
+    Vertex tree = new Node(
+        new Node(new Leaf(1), new Leaf(2)),
+        new Node(new Leaf(3), new Leaf(4)));
 
-    // A is handled directly:
-    assert(results[0] == "A with a value of 1");
-    // B has no handler - it is handled by the handler of I:
-    assert(results[1] == "derived from I");
-    // null is handled by the null handler:
-    assert(results[2] == "null reference");
+    assert(toString(tree) == "1 2 3 4");
 }
 
 /// Using with void handlers:
@@ -13158,7 +13334,7 @@ unittest
     assertThrown!Exception(
         new B().castSwitch!(
             (A a) => 1,
-            (B d)    { throw new Exception("B is not allowed!"); }
+            (B b)    { throw new Exception("B is not allowed!"); }
         )()
     );
 
@@ -13167,6 +13343,26 @@ unittest
         (A a) { assert(true); },
         (B b) { assert(false); },
     )();
+}
+
+/// Using with multiple arguments:
+unittest
+{
+    class A { }
+    class B { }
+
+    // Handlers can be mapped to multiple arguments:
+    assert(castSwitch!(
+               (A a, B b) => 1,
+               (B b, A a) => 2,
+           )(new A(), new B()) == 1);
+
+    // If there is only one switch object and it's a tuple, it gets expanded
+    // automatically:
+    assert(tuple(new A(), new B()).castSwitch!(
+                     (A a, B b) => 1,
+                     (B b, A a) => 2,
+           )() == 1);
 }
 
 unittest
@@ -13178,17 +13374,30 @@ unittest
     class A : I { }
     class B { }
 
+    // Regular match
+    assert((new A()).castSwitch!(
+               (A _1) => 1,
+               (B _1) => 2,
+           )() == 1);
+
+    // Subclass match
+    assert((new A()).castSwitch!(
+               (I _1) => 1,
+               (B _1) => 2,
+           )() == 1);
+
+    // Null match
+    assert((cast(Object)null).castSwitch!(
+               (I _1) => 1,
+               (B _1) => 2,
+               ()     => 3,
+           )() == 3);
+
     // Nothing matches:
     assertThrown!SwitchError((new A()).castSwitch!(
-                                 (B b) => 1,
-                                 () => 2,
+                                 (B _1) => 1,
+                                 ()     => 2,
                              )());
-
-    // Choices with multiple arguments are not allowed:
-    static assert(!__traits(compiles,
-                            (new A()).castSwitch!(
-                                (A a, B b) => 0,
-                            )()));
 
     // Only callable handlers allowed:
     static assert(!__traits(compiles,
@@ -13199,21 +13408,21 @@ unittest
     // Only object arguments allowed:
     static assert(!__traits(compiles,
                             (new A()).castSwitch!(
-                                (int x) => 0,
+                                (int _1) => 0,
                             )()));
 
     // Object overshadows regular classes:
     static assert(!__traits(compiles,
                             (new A()).castSwitch!(
-                                (Object o) => 0,
-                                (A a) => 1,
+                                (Object _1) => 0,
+                                (A _1)      => 1,
                             )()));
 
     // Object overshadows interfaces:
     static assert(!__traits(compiles,
                             (new A()).castSwitch!(
-                                (Object o) => 0,
-                                (I i) => 1,
+                                (Object _1) => 0,
+                                (I _1)      => 1,
                             )()));
 
     // No multiple null handlers allowed:
@@ -13225,8 +13434,8 @@ unittest
 
     // No non-throwing void handlers allowed(when there are non-void handlers):
     assertThrown!SwitchError((new A()).castSwitch!(
-                                 (A a)    {},
-                                 (B b) => 2,
+                                 (A _1)    {},
+                                 (B _1) => 2,
                              )());
 
     // All-void handlers work for the null case:
@@ -13237,9 +13446,65 @@ unittest
 
     // Throwing void handlers work for the null case:
     assertThrown!Exception(null.castSwitch!(
-                               (Object o) => 1,
-                               ()            { throw new Exception("null"); },
+                               (Object _1) => 1,
+                               ()             { throw new Exception("null"); },
                            )());
+
+    // Multiple arguments all arguments must match(exact):
+    assert(tuple(new A(), new A()).castSwitch!(
+               (A _1, B _2) => 1,
+               (B _1, A _2) => 2,
+               (A _1, A _2) => 3,
+           )() == 3);
+
+    // Multiple arguments all arguments must match(derived):
+    assert(tuple(new A(), new A()).castSwitch!(
+               (A _1, B _2) => 1,
+               (B _1, A _2) => 2,
+               (I _1, B _2) => 3,
+               (B _1, I _2) => 4,
+               (I _1, I _2) => 5,
+           )() == 5);
+
+    // Multiple arguments with some non-object arguments:
+    assert(tuple(new B(), 1).castSwitch!(
+               (A _1, int) => 1,
+               (B _1, int) => 2,
+           )() == 2);
+
+    // Short arguments lists are padded with null types:
+    assert(tuple(1, 2, null).castSwitch!(
+               (int, int) => 1,
+           )() == 1);
+
+    // Null type works correctly with null object references:
+    assert((cast(Object) null).castSwitch!(
+               (typeof(null)) => 1,
+           )() == 1);
+
+    // void* accepts everything:
+    assert(12.castSwitch!(
+               (void*) => 1,
+           )() == 1);
+    assert(new A().castSwitch!(
+               (void*) => 1,
+           )() == 1);
+    assert(null.castSwitch!(
+               (void*) => 1,
+           )() == 1);
+    assert((cast(Object) null).castSwitch!(
+               (void*) => 1,
+           )() == 1);
+
+    // void* together with a exact match:
+    assert(tuple(new A(), null).castSwitch!(
+               (A _1, void*) => 1,
+           )() == 1);
+
+    // void* together with a derived match:
+    assert(tuple(new A(), null).castSwitch!(
+               (I _1, void*) => 1,
+           )() == 1);
 }
 
 // cartesianProduct
@@ -13492,7 +13757,7 @@ unittest
 /// ditto
 auto cartesianProduct(RR...)(RR ranges)
     if (ranges.length > 2 &&
-    	allSatisfy!(isForwardRange, RR) &&
+        allSatisfy!(isForwardRange, RR) &&
         !anySatisfy!(isInfinite, RR))
 {
     // This overload uses a much less template-heavy implementation when
